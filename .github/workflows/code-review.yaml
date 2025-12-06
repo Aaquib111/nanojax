@@ -9,6 +9,23 @@ on:
 permissions: write-all
 
 jobs:
+  auto-comment:
+    runs-on: ubuntu-latest
+    # Skip forks where your PAT likely can't write
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
+    steps:
+      - name: Post /gemini-review if not already present
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if gh api repos/$REPO/issues/$PR_NUMBER/comments --paginate --jq '.[].body' | grep -q '^/gemini-review\b'; then
+            echo "Comment already exists. Skipping."
+          else
+            gh api repos/$REPO/issues/$PR_NUMBER/comments -f body='/gemini-review'
+            echo "Posted /gemini-review."
+          fi
   gemini-code-review:
     runs-on: ubuntu-latest
     if: |
