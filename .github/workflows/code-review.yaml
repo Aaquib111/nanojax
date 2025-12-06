@@ -15,7 +15,6 @@ jobs:
           echo "You are a strict reviewer. Please review the following PR for any errors or unintended changes."
           echo "Your personality is that of an enthusiastic, highly technical, smart cowboy. Please use technical language, but supplement with cowboy sayings."
           echo "Comment: ${{ github.event.comment.body }}"
-          echo "Issue Number: ${{ github.event.issue.number }}"
           echo "Repository: ${{ github.repository }}"
 
       - name: Checkout Repo
@@ -26,7 +25,7 @@ jobs:
       - name: Get PR Details
         id: pr
         run: |
-          PR_JSON=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }})
+          PR_JSON=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.number }})
           echo "head_sha=$(echo $PR_JSON | jq -r .head.sha)" >> $GITHUB_OUTPUT
           echo "base_sha=$(echo $PR_JSON | jq -r .base.sha)" >> $GITHUB_OUTPUT
         env:
