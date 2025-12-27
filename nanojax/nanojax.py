@@ -1,13 +1,11 @@
 """Tape-based reverse-mode auto-differentiation in Python"""
 
-import re
-
 from contextvars import ContextVar
 from collections import namedtuple
-from nanojax import grad_register
+from . import grad_register
 
 import numpy as np
-from typing import Callable
+from typing import Callable, Union
 
 TraceItem = namedtuple(
     "TraceItem", ["func", "args", "kwargs", "backward_func", "output"]
@@ -45,12 +43,18 @@ class FuncTracer:
     def __init__(self, array: np.ndarray):
         self.array = array
 
-    def __add__(self, other):
+    def __add__(
+        self, other: Union["FuncTracer", np.ndarray]
+    ) -> Union["FuncTracer", np.ndarray]:
         return _run_with_trace(np.add, self, other)
 
 
-def _unwrap_if_tracer(tracer_or_array):
-    """Unwraps FuncTracer and returns underlying array. Returns the input if already an array."""
+def _unwrap_if_tracer(
+    tracer_or_array: Union[FuncTracer, np.ndarray],
+) -> np.ndarray:
+    """Unwraps FuncTracer and returns underlying array.
+
+    Returns the input if already an array."""
     return (
         tracer_or_array.array
         if isinstance(tracer_or_array, FuncTracer)
@@ -58,8 +62,10 @@ def _unwrap_if_tracer(tracer_or_array):
     )
 
 
-def _run_with_trace(func: Callable, *func_args, **func_kwargs) -> FuncTracer:
-    """Runs function with provided arguments, capturing it in the current trace stack."""
+def _run_with_trace(
+    func: Callable, *func_args, **func_kwargs
+) -> Union[FuncTracer, np.ndarray]:
+    """Captures function run in the current trace stack."""
     trace_stack = get_current_trace()
     arg_arrays = [_unwrap_if_tracer(arg) for arg in func_args]
     any_args_tracers = any(isinstance(arg, FuncTracer) for arg in func_args)

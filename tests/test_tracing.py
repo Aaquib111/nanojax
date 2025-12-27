@@ -39,6 +39,7 @@ class TestFuncTracer(unittest.TestCase):
             a = FuncTracer(np.array([1.0, 2.0]))
             b = FuncTracer(np.array([3.0, 4.0]))
             c = a + b
+            assert isinstance(c, FuncTracer)
 
             self.assertEqual(len(trace), 1)
             self.assertEqual(trace[0].func, np.add)
