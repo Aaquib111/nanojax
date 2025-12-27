@@ -11,9 +11,7 @@ TraceItem = namedtuple(
     "TraceItem", ["func", "args", "kwargs", "backward_func", "output"]
 )
 
-_TRACE_STACK_VAR: ContextVar[tuple[list, ...]] = ContextVar(
-    "trace_stack", default=()
-)
+_TRACE_STACK_VAR: ContextVar[tuple[list, ...]] = ContextVar("trace_stack", default=())
 
 
 def get_current_trace():
