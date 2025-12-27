@@ -13,7 +13,7 @@ def _register_grad(func: Callable, grad_func: Callable):
     _PRIMITIVE_GRAD[func] = grad_func
 
 
-def _add_grad(grad_out, *args, **kwargs) -> tuple[np.ndarray, np.ndarray]:
+def _add_grad(grad_out, *_args, **_kwargs) -> tuple[np.ndarray, np.ndarray]:
     return (grad_out, grad_out)
 
 
