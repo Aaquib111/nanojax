@@ -106,19 +106,18 @@ def grad(
     def wrapper(*func_args, **func_kwargs):
         """Returns gradient w.r.t each positional argument."""
         wrapped_func_args = [
-            FuncTracer(array=arg)
+            arg if isinstance(arg, FuncTracer) else FuncTracer(array=arg)
             for arg in func_args
-            if not isinstance(arg, FuncTracer)
         ]
         with TraceTape() as trace:
             func_output: FuncTracer = func(*wrapped_func_args, **func_kwargs)
-            if len(func_output.array.shape) > 1 and grad_direction is None:
+            if func_output.array.size > 1 and grad_direction is None:
                 raise ValueError(
                     f"Got vector output of shape {func_output.array.shape}"
                     " but grad_direction is None."
                 )
             # Set initial gradient
-            grad_out = np.array([1]) if grad_direction is None else grad_direction
+            grad_out = np.array(1.0) if grad_direction is None else grad_direction
             gradient_by_arg = {func_output: grad_out}
 
             # Traverse tape backwards, updating gradients as we go
@@ -130,8 +129,9 @@ def grad(
                 trace_output,
             ) in trace[::-1]:
                 trace_output_grad = gradient_by_arg[trace_output]
+                unwrapped_args = [_unwrap_if_tracer(arg) for arg in trace_args]
                 gradient_wrt_args = trace_backward_func(
-                    trace_output_grad, *trace_args, **trace_kwargs
+                    trace_output_grad, *unwrapped_args, **trace_kwargs
                 )
                 for i, arg in enumerate(trace_args):
                     if isinstance(arg, FuncTracer):
