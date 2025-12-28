@@ -111,6 +111,9 @@ def grad(
         ]
         with TraceTape() as trace:
             func_output: FuncTracer = func(*wrapped_func_args, **func_kwargs)
+            if not isinstance(func_output, FuncTracer):
+                # Output is constant w.r.t. inputs, so grad is zero.
+                return tuple(np.zeros_like(wrapped_func_args[i].array) for i in argnums)
             if func_output.array.size > 1 and grad_direction is None:
                 raise ValueError(
                     f"Got vector output of shape {func_output.array.shape}"
