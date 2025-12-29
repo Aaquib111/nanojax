@@ -6,6 +6,15 @@ from nanojax import grad
 
 
 class TestGrad(unittest.TestCase):
+    def test_grad_vector_output_raises_error(self):
+        def f(x):
+            return x + np.array([1.0, 2.0])
+
+        grad_f = grad(f, argnums=(0,), grad_direction=None)
+        x = np.array([1.0])
+        with self.assertRaises(ValueError):
+            grad_f(x)
+
     def test_grad_addition_single_arg(self):
         def f(x):
             return x + x
