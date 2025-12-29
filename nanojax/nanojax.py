@@ -38,6 +38,41 @@ class FuncTracer:
     def __add__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
         return _run_with_trace(np.add, self, other)
 
+    def __sub__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.subtract, self, other)
+
+    def __mul__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.multiply, self, other)
+
+    def __truediv__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.true_divide, self, other)
+
+    def __neg__(self) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.negative, self)
+
+    def __radd__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.add, other, self)
+
+    def __rsub__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.subtract, other, self)
+
+    def __rmul__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.multiply, other, self)
+
+    def __rtruediv__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.true_divide, other, self)
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        """Intercept numpy ufunc calls to trace operations."""
+        if method == "__call__":
+            return _run_with_trace(ufunc, *inputs, **kwargs)
+        else:
+            return NotImplemented
+
+    def __array_function__(self, func, types, args, kwargs):
+        """Intercept numpy array function calls to trace operations."""
+        return _run_with_trace(func, *args, **kwargs)
+
 
 def _unwrap_if_tracer(
     tracer_or_array: FuncTracer | np.ndarray,

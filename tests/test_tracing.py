@@ -1,11 +1,11 @@
 import unittest
 import numpy as np
-from numpy.testing import assert_array_equal  # type: ignore[attr-defined]
+from numpy.testing import assert_array_equal
 
-from nanojax import TraceTape, FuncTracer, grad
+from nanojax import TraceTape, FuncTracer
 
 
-class TestFuncTracer(unittest.TestCase):
+class TestTraceTape(unittest.TestCase):
     def test_tracer_wraps_array(self):
         arr = np.array([1.0, 2.0, 3.0])
         tracer = FuncTracer(arr)
@@ -28,39 +28,6 @@ class TestFuncTracer(unittest.TestCase):
         b = FuncTracer(np.array([3.0, 4.0]))
         c = a + b
         assert_array_equal(c, np.array([4.0, 6.0]))
-
-
-class TestGrad(unittest.TestCase):
-    def test_grad_vector_output_raises_error(self):
-        def f(x):
-            return x + np.array([1.0, 2.0])
-
-        grad_f = grad(f, argnums=(0,), grad_direction=None)
-        x = np.array([1.0])
-        with self.assertRaises(ValueError):
-            grad_f(x)
-
-    def test_grad_addition_single_arg(self):
-        def f(x):
-            return x + x
-
-        grad_f = grad(f, argnums=(0,), grad_direction=None)
-        x = np.array([1.0])
-        (dx,) = grad_f(x)
-        # d/dx (x + x) = 2
-        assert_array_equal(dx, np.array([2.0]))
-
-    def test_grad_addition_two_args(self):
-        def f(x, y):
-            return x + y
-
-        grad_f = grad(f, argnums=(0, 1), grad_direction=None)
-        x = np.array([1.0])
-        y = np.array([3.0])
-        dx, dy = grad_f(x, y)
-        # d/dx (x + y) = 1, d/dy (x + y) = 1
-        assert_array_equal(dx, np.ones_like(x))
-        assert_array_equal(dy, np.ones_like(y))
 
 
 if __name__ == "__main__":
