@@ -170,5 +170,101 @@ class TestReshapeGrad(unittest.TestCase):
         assert_array_equal(dx.shape, x.shape)
 
 
+class TestReductionGrad(unittest.TestCase):
+    def test_sum_grad_no_axis(self):
+        def f(x):
+            return np.sum(x)
+
+        grad_f = grad(f, argnums=(0,), grad_direction=None)
+        x = np.array([[1.0, 2.0], [3.0, 4.0]])
+        (dx,) = grad_f(x)
+        # d/dx sum(x) = 1 for all elements
+        assert_array_equal(dx, np.ones_like(x))
+
+    def test_sum_grad_with_axis(self):
+        def f(x):
+            return np.sum(x, axis=0)
+
+        grad_direction = np.ones(2)
+        grad_f = grad(f, argnums=(0,), grad_direction=grad_direction)
+        x = np.array([[1.0, 2.0], [3.0, 4.0]])
+        (dx,) = grad_f(x)
+        # d/dx sum(x, axis=0) = 1 for all elements
+        assert_array_equal(dx, np.ones_like(x))
+
+    def test_mean_grad_no_axis(self):
+        def f(x):
+            return np.mean(x)
+
+        grad_f = grad(f, argnums=(0,), grad_direction=None)
+        x = np.array([[1.0, 2.0], [3.0, 4.0]])
+        (dx,) = grad_f(x)
+        # d/dx mean(x) = 1/n for all elements
+        assert_array_equal(dx, np.ones_like(x) / 4.0)
+
+    def test_mean_grad_with_axis(self):
+        def f(x):
+            return np.mean(x, axis=1)
+
+        grad_direction = np.ones(2)
+        grad_f = grad(f, argnums=(0,), grad_direction=grad_direction)
+        x = np.array([[1.0, 2.0], [3.0, 4.0]])
+        (dx,) = grad_f(x)
+        # d/dx mean(x, axis=1) = 1/2 for all elements
+        assert_array_equal(dx, np.ones_like(x) / 2.0)
+
+
+class TestMatrixGrad(unittest.TestCase):
+    def test_dot_grad(self):
+        def f(x, y):
+            return np.dot(x, y)
+
+        grad_direction = np.ones((2, 2))
+        grad_f = grad(f, argnums=(0, 1), grad_direction=grad_direction)
+        x = np.array([[1.0, 2.0], [3.0, 4.0]])
+        y = np.array([[5.0, 6.0], [7.0, 8.0]])
+        dx, dy = grad_f(x, y)
+
+        # d/dx dot(x, y) = grad_out @ y.T
+        expected_dx = np.dot(grad_direction, y.T)
+        assert_array_equal(dx, expected_dx)
+
+        # d/dy dot(x, y) = x.T @ grad_out
+        expected_dy = np.dot(x.T, grad_direction)
+        assert_array_equal(dy, expected_dy)
+
+    def test_matmul_grad(self):
+        def f(x, y):
+            return np.matmul(x, y)
+
+        grad_direction = np.ones((2, 2))
+        grad_f = grad(f, argnums=(0, 1), grad_direction=grad_direction)
+        x = np.array([[1.0, 2.0], [3.0, 4.0]])
+        y = np.array([[5.0, 6.0], [7.0, 8.0]])
+        dx, dy = grad_f(x, y)
+
+        # d/dx matmul(x, y) = grad_out @ y.T
+        expected_dx = grad_direction @ y.T
+        assert_array_equal(dx, expected_dx)
+
+        # d/dy matmul(x, y) = x.T @ grad_out
+        expected_dy = x.T @ grad_direction
+        assert_array_equal(dy, expected_dy)
+
+    def test_matmul_vector_grad(self):
+        def f(x, y):
+            return np.matmul(x, y)
+
+        grad_direction = np.ones(2)
+        grad_f = grad(f, argnums=(0, 1), grad_direction=grad_direction)
+        x = np.array([[1.0, 2.0], [3.0, 4.0]])  # (2, 2)
+        y = np.array([5.0, 6.0])  # (2,)
+        dx, dy = grad_f(x, y)
+
+        # Result is (2,), so dx should be (2, 2), dy should be (2,)
+        assert_array_equal(dx.shape, x.shape)
+        assert_array_equal(dy.shape, y.shape)
+
+
 if __name__ == "__main__":
     unittest.main()

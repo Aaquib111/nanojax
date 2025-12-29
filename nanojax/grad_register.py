@@ -42,21 +42,37 @@ def _add_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
     return (grad_a, grad_b)
 
 
-def _sub_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+def _sub_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
     grad_a = _unbroadcast(grad_out, a.shape)
-    grad_b = _unbroadcast(-grad_out, b.shape)
+
+    if isinstance(b, np.ndarray):
+        grad_b = _unbroadcast(-grad_out, b.shape)
+    else:
+        grad_b = None
+
     return (grad_a, grad_b)
 
 
-def _mul_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+def _mul_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
     grad_a = _unbroadcast(grad_out * b, a.shape)
-    grad_b = _unbroadcast(grad_out * a, b.shape)
+
+    if isinstance(b, np.ndarray):
+        grad_b = _unbroadcast(grad_out * a, b.shape)
+    else:
+        grad_b = None
+
     return (grad_a, grad_b)
 
 
-def _div_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+def _div_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
     grad_a = _unbroadcast(grad_out / b, a.shape)
-    grad_b = _unbroadcast(-grad_out * a / (b**2), b.shape)
+
+    if isinstance(b, np.ndarray):
+        grad_b = _unbroadcast(-grad_out * a / (b**2), b.shape)
+    else:
+        # b is a scalar constant
+        grad_b = None
+
     return (grad_a, grad_b)
 
 
@@ -84,21 +100,48 @@ def _sqrt_grad(grad_out, a, **_kwargs) -> tuple[np.ndarray, ...]:
     return (grad_out * 0.5 / np.sqrt(a),)
 
 
-def _max_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+def _power_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
+    # d/da (a^b) = b * a^(b-1)
+    grad_a = grad_out * b * np.power(a, b - 1)
+
+    # Only compute grad_b if b is an array
+    if isinstance(b, np.ndarray):
+        # d/db (a^b) = a^b * log(a)
+        grad_b = _unbroadcast(grad_out * np.power(a, b) * np.log(a), b.shape)
+    else:
+        # b is a scalar constant, no gradient needed
+        grad_b = None
+
+    return (_unbroadcast(grad_a, a.shape), grad_b)
+
+
+def _max_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
     # Following common standard where if a == b, gradient for both is equal
     a_mask = (a > b) + 0.5 * (a == b)
-    b_mask = (b > a) + 0.5 * (b == a)
     grad_a = _unbroadcast(grad_out * a_mask, a.shape)
-    grad_b = _unbroadcast(grad_out * b_mask, b.shape)
+
+    if isinstance(b, np.ndarray):
+        b_mask = (b > a) + 0.5 * (b == a)
+        grad_b = _unbroadcast(grad_out * b_mask, b.shape)
+    else:
+        # b is a scalar constant
+        grad_b = None
+
     return (grad_a, grad_b)
 
 
-def _min_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+def _min_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
     # Following common standard where if a == b, gradient for both is equal
     a_mask = (a < b) + 0.5 * (a == b)
-    b_mask = (b < a) + 0.5 * (b == a)
     grad_a = _unbroadcast(grad_out * a_mask, a.shape)
-    grad_b = _unbroadcast(grad_out * b_mask, b.shape)
+
+    if isinstance(b, np.ndarray):
+        b_mask = (b < a) + 0.5 * (b == a)
+        grad_b = _unbroadcast(grad_out * b_mask, b.shape)
+    else:
+        # b is a scalar constant
+        grad_b = None
+
     return (grad_a, grad_b)
 
 
@@ -116,6 +159,49 @@ def _transpose_grad(grad_out, a, *_args, **kwargs) -> tuple[np.ndarray, ...]:
     return (np.transpose(grad_out, axes=inv_transpose),)
 
 
+def _sum_grad(grad_out, a, **kwargs) -> tuple[np.ndarray, ...]:
+    axis = kwargs.get("axis", None)
+    if axis is None:
+        # Sum over all elements
+        return (np.full_like(a, grad_out),)
+    # Sum along specific axis
+    grad_expanded = np.expand_dims(grad_out, axis=axis)
+    return (np.broadcast_to(grad_expanded, a.shape),)
+
+
+def _mean_grad(grad_out, a, **kwargs) -> tuple[np.ndarray, ...]:
+    axis = kwargs.get("axis", None)
+    if axis is None:
+        # Mean over all elements
+        count = a.size
+        return (np.full_like(a, grad_out / count),)
+    # Mean along specific axis
+    count = (
+        a.shape[axis]
+        if isinstance(axis, int)
+        else np.prod([a.shape[ax] for ax in axis])
+    )
+    grad_expanded = np.expand_dims(grad_out, axis=axis)
+    return (np.broadcast_to(grad_expanded, a.shape) / count,)
+
+
+def _dot_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+    return (np.dot(grad_out, b.T), np.dot(a.T, grad_out))
+
+
+def _matmul_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+    if b.ndim == 1:
+        # Matrix @ vector case: grad_a = grad_out[:, None] @ b[None, :]
+        grad_a = np.outer(grad_out, b)
+        grad_b = a.T @ grad_out
+    else:
+        # Matrix @ matrix case
+        grad_a = grad_out @ b.T
+        grad_b = a.T @ grad_out
+
+    return (_unbroadcast(grad_a, a.shape), _unbroadcast(grad_b, b.shape))
+
+
 # Element-wise arithmetic operations
 _register_grad(np.add, _add_grad)
 _register_grad(np.subtract, _sub_grad)
@@ -129,6 +215,7 @@ _register_grad(np.exp, _exp_grad)
 _register_grad(np.sin, _sin_grad)
 _register_grad(np.cos, _cos_grad)
 _register_grad(np.sqrt, _sqrt_grad)
+_register_grad(np.power, _power_grad)
 _register_grad(np.maximum, _max_grad)
 _register_grad(np.minimum, _min_grad)
 
@@ -137,11 +224,9 @@ _register_grad(np.reshape, _reshape_grad)
 _register_grad(np.transpose, _transpose_grad)
 
 # Reductions
-# TODO: Implement these
-# _register_grad(np.sum, _sum_grad)
-# _register_grad(np.mean, _mean_grad)
+_register_grad(np.sum, _sum_grad)
+_register_grad(np.mean, _mean_grad)
 
 # Matrix operations
-# TODO: Implement these
-# _register_grad(np.dot, _dot_grad)
-# _register_grad(np.matmul, _matmul_grad)
+_register_grad(np.dot, _dot_grad)
+_register_grad(np.matmul, _matmul_grad)
