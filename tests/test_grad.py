@@ -255,15 +255,73 @@ class TestMatrixGrad(unittest.TestCase):
         def f(x, y):
             return np.matmul(x, y)
 
-        grad_direction = np.ones(2)
+        grad_direction = np.array([0.5, 2.0])
         grad_f = grad(f, argnums=(0, 1), grad_direction=grad_direction)
         x = np.array([[1.0, 2.0], [3.0, 4.0]])  # (2, 2)
         y = np.array([5.0, 6.0])  # (2,)
         dx, dy = grad_f(x, y)
 
-        # Result is (2,), so dx should be (2, 2), dy should be (2,)
-        assert_array_equal(dx.shape, x.shape)
-        assert_array_equal(dy.shape, y.shape)
+        # d/dx matmul(x, y) = outer(grad_out, y)
+        expected_dx = np.outer(grad_direction, y)
+        assert_array_equal(dx, expected_dx)
+
+        # d/dy matmul(x, y) = x.T @ grad_out
+        expected_dy = x.T @ grad_direction
+        assert_array_equal(dy, expected_dy)
+
+    def test_dot_matrix_vector_grad(self):
+        def f(x, y):
+            return np.dot(x, y)
+
+        grad_direction = np.array([1.0, 1.0])
+        grad_f = grad(f, argnums=(0, 1), grad_direction=grad_direction)
+        x = np.array([[1.0, 2.0], [3.0, 4.0]])  # (2, 2)
+        y = np.array([5.0, 6.0])  # (2,)
+        dx, dy = grad_f(x, y)
+
+        # d/dx dot(x, y) = outer(grad_out, y)
+        expected_dx = np.outer(grad_direction, y)
+        assert_array_equal(dx, expected_dx)
+
+        # d/dy dot(x, y) = x.T @ grad_out
+        expected_dy = x.T @ grad_direction
+        assert_array_equal(dy, expected_dy)
+
+    def test_dot_vector_matrix_grad(self):
+        def f(x, y):
+            return np.dot(x, y)
+
+        grad_direction = np.array([1.0, 1.0])
+        grad_f = grad(f, argnums=(0, 1), grad_direction=grad_direction)
+        x = np.array([1.0, 2.0])  # (2,)
+        y = np.array([[3.0, 4.0], [5.0, 6.0]])  # (2, 2)
+        dx, dy = grad_f(x, y)
+
+        # d/dx dot(x, y) = y @ grad_out
+        expected_dx = y @ grad_direction
+        assert_array_equal(dx, expected_dx)
+
+        # d/dy dot(x, y) = outer(x, grad_out)
+        expected_dy = np.outer(x, grad_direction)
+        assert_array_equal(dy, expected_dy)
+
+    def test_matmul_vector_matrix_grad(self):
+        def f(x, y):
+            return np.matmul(x, y)
+
+        grad_direction = np.array([1.0, 1.0])
+        grad_f = grad(f, argnums=(0, 1), grad_direction=grad_direction)
+        x = np.array([1.0, 2.0])  # (2,)
+        y = np.array([[3.0, 4.0], [5.0, 6.0]])  # (2, 2)
+        dx, dy = grad_f(x, y)
+
+        # d/dx matmul(x, y) = y @ grad_out
+        expected_dx = y @ grad_direction
+        assert_array_equal(dx, expected_dx)
+
+        # d/dy matmul(x, y) = outer(x, grad_out)
+        expected_dy = np.outer(x, grad_direction)
+        assert_array_equal(dy, expected_dy)
 
 
 if __name__ == "__main__":

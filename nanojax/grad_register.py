@@ -161,16 +161,21 @@ def _transpose_grad(grad_out, a, *_args, **kwargs) -> tuple[np.ndarray, ...]:
 
 def _sum_grad(grad_out, a, **kwargs) -> tuple[np.ndarray, ...]:
     axis = kwargs.get("axis", None)
+    keepdims = kwargs.get("keepdims", False)
     if axis is None:
         # Sum over all elements
         return (np.full_like(a, grad_out),)
     # Sum along specific axis
-    grad_expanded = np.expand_dims(grad_out, axis=axis)
+    if keepdims:
+        grad_expanded = grad_out
+    else:
+        grad_expanded = np.expand_dims(grad_out, axis=axis)
     return (np.broadcast_to(grad_expanded, a.shape),)
 
 
 def _mean_grad(grad_out, a, **kwargs) -> tuple[np.ndarray, ...]:
     axis = kwargs.get("axis", None)
+    keepdims = kwargs.get("keepdims", False)
     if axis is None:
         # Mean over all elements
         count = a.size
@@ -181,19 +186,47 @@ def _mean_grad(grad_out, a, **kwargs) -> tuple[np.ndarray, ...]:
         if isinstance(axis, int)
         else np.prod([a.shape[ax] for ax in axis])
     )
-    grad_expanded = np.expand_dims(grad_out, axis=axis)
+    if keepdims:
+        grad_expanded = grad_out
+    else:
+        grad_expanded = np.expand_dims(grad_out, axis=axis)
     return (np.broadcast_to(grad_expanded, a.shape) / count,)
 
 
 def _dot_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
-    return (np.dot(grad_out, b.T), np.dot(a.T, grad_out))
+    if a.ndim == 1 and b.ndim == 1:
+        # Vector @ vector case: result is scalar, grads are vectors
+        grad_a = grad_out * b
+        grad_b = grad_out * a
+    elif a.ndim == 2 and b.ndim == 1:
+        # Matrix @ vector case: grad_a is outer product, grad_b is matrix-vector product
+        grad_a = np.outer(grad_out, b)
+        grad_b = a.T @ grad_out
+    elif a.ndim == 1 and b.ndim == 2:
+        # Vector @ matrix case: grad_a is matrix-vector product, grad_b is outer product
+        grad_a = b @ grad_out
+        grad_b = np.outer(a, grad_out)
+    else:
+        # Matrix @ matrix case
+        grad_a = grad_out @ b.T
+        grad_b = a.T @ grad_out
+
+    return (_unbroadcast(grad_a, a.shape), _unbroadcast(grad_b, b.shape))
 
 
 def _matmul_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
-    if b.ndim == 1:
-        # Matrix @ vector case: grad_a = grad_out[:, None] @ b[None, :]
+    if a.ndim == 1 and b.ndim == 1:
+        # Vector @ vector case: result is scalar, grads are vectors
+        grad_a = grad_out * b
+        grad_b = grad_out * a
+    elif a.ndim >= 1 and b.ndim == 1:
+        # Matrix @ vector case: grad_a is outer product, grad_b is matrix-vector product
         grad_a = np.outer(grad_out, b)
         grad_b = a.T @ grad_out
+    elif a.ndim == 1 and b.ndim >= 2:
+        # Vector @ matrix case: grad_a is matrix-vector product, grad_b is outer product
+        grad_a = b @ grad_out
+        grad_b = np.outer(a, grad_out)
     else:
         # Matrix @ matrix case
         grad_a = grad_out @ b.T
