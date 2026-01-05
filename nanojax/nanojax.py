@@ -72,6 +72,18 @@ class FuncTracer:
     def __rtruediv__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
         return _run_with_trace(np.true_divide, other, self)
 
+    def __matmul__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.matmul, self, other)
+
+    def __rmatmul__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.matmul, other, self)
+
+    def __pow__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.power, self, other)
+
+    def __rpow__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
+        return _run_with_trace(np.power, other, self)
+
     def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
         """Intercept numpy ufunc calls to trace operations."""
         if method == "__call__":
