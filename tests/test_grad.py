@@ -172,7 +172,6 @@ class TestReshapeGrad(unittest.TestCase):
 
 
 class TestHigherOrderDerivatives(unittest.TestCase):
-
     def test_fourth_derivative_x_fourth(self):
         # f(x) = x^4, f'(x) = 4x^3, f''(x) = 12x^2, f'''(x) = 24x, f''''(x) = 24
         def f(x):
@@ -184,7 +183,7 @@ class TestHigherOrderDerivatives(unittest.TestCase):
         grad4_f = grad(grad3_f)
 
         x = np.array(2.0)
-        self.assertEqual(grad_f(x), 32.0)   # 4 * 8 = 32
+        self.assertEqual(grad_f(x), 32.0)  # 4 * 8 = 32
         self.assertEqual(grad2_f(x), 48.0)  # 12 * 4 = 48
         self.assertEqual(grad3_f(x), 48.0)  # 24 * 2 = 48
         self.assertEqual(grad4_f(x), 24.0)  # constant 24
@@ -200,10 +199,10 @@ class TestHigherOrderDerivatives(unittest.TestCase):
         grad4_f = grad(grad3_f)
 
         x = np.array(0.0)
-        self.assertAlmostEqual(grad_f(x), 1.0)    # cos(0) = 1
-        self.assertAlmostEqual(grad2_f(x), 0.0)   # -sin(0) = 0
+        self.assertAlmostEqual(grad_f(x), 1.0)  # cos(0) = 1
+        self.assertAlmostEqual(grad2_f(x), 0.0)  # -sin(0) = 0
         self.assertAlmostEqual(grad3_f(x), -1.0)  # -cos(0) = -1
-        self.assertAlmostEqual(grad4_f(x), 0.0)   # sin(0) = 0
+        self.assertAlmostEqual(grad4_f(x), 0.0)  # sin(0) = 0
 
 
 if __name__ == "__main__":

@@ -228,7 +228,12 @@ def grad(
                     else:
                         gradient_by_arg[arg] = gradient_wrt_args[i]
 
-        result = tuple(gradient_by_arg[wrapped_func_args[i]] for i in argnums)
+        result = result = tuple(
+            gradient_by_arg.get(
+                wrapped_func_args[i], np.zeros_like(wrapped_func_args[i].array)
+            )
+            for i in argnums
+        )
         # Return single value if only one argnum
         return result[0] if len(argnums) == 1 else result
 
