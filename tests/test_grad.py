@@ -1,4 +1,5 @@
 import unittest
+
 import numpy as np
 from numpy.testing import assert_array_equal
 
@@ -21,7 +22,7 @@ class TestGrad(unittest.TestCase):
 
         grad_f = grad(f, argnums=(0,), grad_direction=None)
         x = np.array([1.0])
-        (dx,) = grad_f(x)
+        dx = grad_f(x)
         # d/dx (x + x) = 2
         assert_array_equal(dx, np.array([2.0]))
 
@@ -99,7 +100,7 @@ class TestArithmeticGrad(unittest.TestCase):
 
         grad_f = grad(f, argnums=(0,), grad_direction=None)
         x = np.array([3.0])
-        (dx,) = grad_f(x)
+        dx = grad_f(x)
         # d/dx (-x) = -1
         assert_array_equal(dx, np.array([-1.0]))
 
@@ -111,7 +112,7 @@ class TestElementwiseFunctionGrad(unittest.TestCase):
 
         grad_f = grad(f, argnums=(0,), grad_direction=None)
         x = np.array([1.0])
-        (dx,) = grad_f(x)
+        dx = grad_f(x)
         # d/dx exp(x) = exp(x)
         assert_array_equal(dx, np.exp(np.array([1.0])))
 
@@ -121,7 +122,7 @@ class TestElementwiseFunctionGrad(unittest.TestCase):
 
         grad_f = grad(f, argnums=(0,), grad_direction=None)
         x = np.array([2.0])
-        (dx,) = grad_f(x)
+        dx = grad_f(x)
         # d/dx log(x) = 1/x
         assert_array_equal(dx, np.array([0.5]))
 
@@ -131,7 +132,7 @@ class TestElementwiseFunctionGrad(unittest.TestCase):
 
         grad_f = grad(f, argnums=(0,), grad_direction=None)
         x = np.array([0.0])
-        (dx,) = grad_f(x)
+        dx = grad_f(x)
         # d/dx sin(x) = cos(x), cos(0) = 1
         assert_array_equal(dx, np.array([1.0]))
 
@@ -141,7 +142,7 @@ class TestElementwiseFunctionGrad(unittest.TestCase):
 
         grad_f = grad(f, argnums=(0,), grad_direction=None)
         x = np.array([0.0])
-        (dx,) = grad_f(x)
+        dx = grad_f(x)
         # d/dx cos(x) = -sin(x), -sin(0) = 0
         assert_array_equal(dx, np.array([0.0]))
 
@@ -151,7 +152,7 @@ class TestElementwiseFunctionGrad(unittest.TestCase):
 
         grad_f = grad(f, argnums=(0,), grad_direction=None)
         x = np.array([4.0])
-        (dx,) = grad_f(x)
+        dx = grad_f(x)
         # d/dx sqrt(x) = 0.5/sqrt(x) = 0.5/2 = 0.25
         assert_array_equal(dx, np.array([0.25]))
 
@@ -164,7 +165,7 @@ class TestReshapeGrad(unittest.TestCase):
         grad_direction = np.ones((2, 2))
         grad_f = grad(f, argnums=(0,), grad_direction=grad_direction)
         x = np.array([1.0, 2.0, 3.0, 4.0])
-        (dx,) = grad_f(x)
+        dx = grad_f(x)
         # Gradient should flow back through reshape
         assert_array_equal(dx, np.array([1.0, 1.0, 1.0, 1.0]))
         assert_array_equal(dx.shape, x.shape)
