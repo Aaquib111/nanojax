@@ -1,6 +1,6 @@
 from typing import Callable, Union
-import numpy as np
 
+import numpy as np
 
 _PRIMITIVE_GRAD: dict[Callable, Callable] = {}
 
@@ -11,6 +11,13 @@ def get_grad_func(func: Callable) -> Callable:
 
 def _register_grad(func: Callable, grad_func: Callable) -> None:
     _PRIMITIVE_GRAD[func] = grad_func
+
+
+def _get_shape(x) -> tuple:
+    """Get shape of x, handling scalars and arrays."""
+    if hasattr(x, "shape"):
+        return x.shape
+    return ()  # Scalars have empty shape
 
 
 def _unbroadcast(grad: np.ndarray, original_shape: tuple) -> np.ndarray:
@@ -37,30 +44,41 @@ def _unbroadcast(grad: np.ndarray, original_shape: tuple) -> np.ndarray:
 
 
 def _add_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
-    grad_a = _unbroadcast(grad_out, a.shape)
-    grad_b = _unbroadcast(grad_out, b.shape)
+    grad_a = _unbroadcast(grad_out, _get_shape(a))
+    grad_b = _unbroadcast(grad_out, _get_shape(b))
     return (grad_a, grad_b)
 
 
-def _sub_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
-    grad_a = _unbroadcast(grad_out, a.shape)
-
-    if isinstance(b, np.ndarray):
-        grad_b = _unbroadcast(-grad_out, b.shape)
-    else:
-        grad_b = None
+def _sub_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+    grad_a = _unbroadcast(grad_out, _get_shape(a))
+    grad_b = _unbroadcast(-grad_out, _get_shape(b))
 
     return (grad_a, grad_b)
 
 
-def _mul_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
-    grad_a = _unbroadcast(grad_out * b, a.shape)
+def _mul_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+    grad_a = _unbroadcast(grad_out * b, _get_shape(a))
+    grad_b = _unbroadcast(grad_out * a, _get_shape(b))
 
-    if isinstance(b, np.ndarray):
-        grad_b = _unbroadcast(grad_out * a, b.shape)
+    return (grad_a, grad_b)
+
+
+def _div_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+    grad_a = _unbroadcast(grad_out / b, _get_shape(a))
+    grad_b = _unbroadcast(-grad_out * a / (b**2), _get_shape(b))
+    return (grad_a, grad_b)
+
+
+def _pow_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
+    # d/da (a^b) = b * a^(b-1)
+    # d/db (a^b) = a^b * ln(a)
+    grad_a = _unbroadcast(grad_out * b * np.power(a, b - 1), _get_shape(a))
+    # Only compute grad_b if b is not a scalar constant (avoids log(negative) warnings)
+    b_shape = _get_shape(b)
+    if b_shape == ():
+        grad_b = np.array(0.0)
     else:
-        grad_b = None
-
+        grad_b = _unbroadcast(grad_out * np.power(a, b) * np.log(a), b_shape)
     return (grad_a, grad_b)
 
 
@@ -100,55 +118,28 @@ def _sqrt_grad(grad_out, a, **_kwargs) -> tuple[np.ndarray, ...]:
     return (grad_out * 0.5 / np.sqrt(a),)
 
 
-def _power_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
-    # d/da (a^b) = b * a^(b-1)
-    grad_a = grad_out * b * np.power(a, b - 1)
-
-    # Only compute grad_b if b is an array
-    if isinstance(b, np.ndarray):
-        # d/db (a^b) = a^b * log(a)
-        grad_b = _unbroadcast(grad_out * np.power(a, b) * np.log(a), b.shape)
-    else:
-        # b is a scalar constant, no gradient needed
-        grad_b = None
-
-    return (_unbroadcast(grad_a, a.shape), grad_b)
-
-
 def _max_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
     # Following common standard where if a == b, gradient for both is equal
     a_mask = (a > b) + 0.5 * (a == b)
-    grad_a = _unbroadcast(grad_out * a_mask, a.shape)
-
-    if isinstance(b, np.ndarray):
-        b_mask = (b > a) + 0.5 * (b == a)
-        grad_b = _unbroadcast(grad_out * b_mask, b.shape)
-    else:
-        # b is a scalar constant
-        grad_b = None
-
+    b_mask = (b > a) + 0.5 * (b == a)
+    grad_a = _unbroadcast(grad_out * a_mask, _get_shape(a))
+    grad_b = _unbroadcast(grad_out * b_mask, _get_shape(b))
     return (grad_a, grad_b)
 
 
 def _min_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
     # Following common standard where if a == b, gradient for both is equal
     a_mask = (a < b) + 0.5 * (a == b)
-    grad_a = _unbroadcast(grad_out * a_mask, a.shape)
-
-    if isinstance(b, np.ndarray):
-        b_mask = (b < a) + 0.5 * (b == a)
-        grad_b = _unbroadcast(grad_out * b_mask, b.shape)
-    else:
-        # b is a scalar constant
-        grad_b = None
-
+    b_mask = (b < a) + 0.5 * (b == a)
+    grad_a = _unbroadcast(grad_out * a_mask, _get_shape(a))
+    grad_b = _unbroadcast(grad_out * b_mask, _get_shape(b))
     return (grad_a, grad_b)
 
 
 def _reshape_grad(
     grad_out, a, newshape, **_kwargs
 ) -> tuple[Union[np.ndarray, None], ...]:
-    return (grad_out.reshape(a.shape), None)
+    return (grad_out.reshape(_get_shape(a)), None)
 
 
 def _transpose_grad(grad_out, a, *_args, **kwargs) -> tuple[np.ndarray, ...]:
@@ -240,6 +231,7 @@ _register_grad(np.add, _add_grad)
 _register_grad(np.subtract, _sub_grad)
 _register_grad(np.multiply, _mul_grad)
 _register_grad(np.true_divide, _div_grad)
+_register_grad(np.power, _pow_grad)
 _register_grad(np.negative, _neg_grad)
 
 # Element-wise functions
@@ -248,7 +240,6 @@ _register_grad(np.exp, _exp_grad)
 _register_grad(np.sin, _sin_grad)
 _register_grad(np.cos, _cos_grad)
 _register_grad(np.sqrt, _sqrt_grad)
-_register_grad(np.power, _power_grad)
 _register_grad(np.maximum, _max_grad)
 _register_grad(np.minimum, _min_grad)
 
