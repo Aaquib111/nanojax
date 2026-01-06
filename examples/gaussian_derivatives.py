@@ -21,20 +21,23 @@ def main():
     grad2_gaussian = grad(grad_gaussian)
     d2y = np.array([grad2_gaussian(np.array(xi)) for xi in x])
 
-    plt.figure(figsize=(10, 6))
+    plt.figure(figsize=(7, 3))
+    plt.style.use("seaborn-v0_8-bright")
     plt.plot(x, y, label="Gaussian", linewidth=2)
     plt.plot(x, dy, label="First derivative", linewidth=2, linestyle="--")
     plt.plot(x, d2y, label="Second derivative", linewidth=2, linestyle=":")
     plt.axhline(y=0, color="k", linewidth=0.5, alpha=0.3)
     plt.axvline(x=0, color="k", linewidth=0.5, alpha=0.3)
     plt.grid(True, alpha=0.3)
-    plt.xlabel("x")
-    plt.ylabel("y")
-    plt.title("Gaussian Distribution and Its Derivatives")
-    plt.legend()
+    plt.xlabel("x", fontsize=19)
+    plt.ylabel("y", fontsize=18)
+    plt.title("Gaussian Derivatives", fontsize=20)
+    plt.legend(loc="lower left", fontsize=8)
     plt.tight_layout()
 
-    plt.savefig("gaussian_derivatives.png", dpi=150, bbox_inches="tight")
+    plt.savefig(
+        "examples/images/gaussian_derivatives.png", dpi=150, bbox_inches="tight"
+    )
     print("Plot saved to gaussian_derivatives.png")
 
 
