@@ -1,19 +1,22 @@
 ## nanojax 
 
-<center>
-<figure>
+<p align="center">
 <img src="examples/images/gaussian_derivatives.png" alt="Gaussian Derivatives" width="600"/>
-<figcaption>Computed using nanojax! See <code>examples/gaussian_derivatives.py</code></figcaption>
-</figure>
-</center>
 
-A minimalist tape-based reverse-mode autodiff library with drop-in support for a subset of `numpy`. No additional dependencies are required beyond `numpy`.
+<p align="center">Computed using nanojax! See <code>examples/gaussian_derivatives.py</code></p>
+</p>
+
+
+A minimalist tape-based reverse-mode autodiff library with drop-in support for a subset of `numpy`. 
+
+No additional dependencies are required beyond `numpy`.
 
 This is purely an educational project, and is not intended for production use. It is not optimized for speed or memory efficiency, and supports a limited set of operations. I had fun building it, and I hope you find it interesting too!
 
 ## Usage
 
 Use `numpy` as normal, and call `nanojax.grad` to create gradient functions!
+
 For a list of supported operations, see the `nanojax/grad_register.py` file.
 
 ```python
@@ -67,6 +70,7 @@ dw1, ... = grad_fn(w1, b1, w2, b2)
 
 # Update params
 w1 = w1 - learning_rate * dw1
+# ...
 ```
 
 The project was inspired by [`karpathy/micrograd`](https://github.com/karpathy/micrograd/), although the approaches used are significantly different.
