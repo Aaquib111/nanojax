@@ -1,12 +1,14 @@
 """Tape-based reverse-mode auto-differentiation in Python"""
 
 from __future__ import annotations
-from contextvars import ContextVar
-from collections.abc import Callable, Sequence
+
 from collections import namedtuple
-from . import grad_register
+from collections.abc import Callable, Sequence
+from contextvars import ContextVar
 
 import numpy as np
+
+from . import grad_register
 
 TraceItem = namedtuple(
     "TraceItem", ["func", "args", "kwargs", "backward_func", "output"]
@@ -34,6 +36,14 @@ class FuncTracer:
 
     def __init__(self, array: np.ndarray):
         self.array = array
+
+    @property
+    def shape(self) -> tuple:
+        return self.array.shape
+
+    @property
+    def ndim(self) -> int:
+        return self.array.ndim
 
     def __add__(self, other: FuncTracer | np.ndarray) -> FuncTracer | np.ndarray:
         return _run_with_trace(np.add, self, other)
@@ -106,16 +116,21 @@ def _get_current_trace():
     return None
 
 
+def _get_all_traces():
+    """Get all active trace tapes (for higher-order derivatives)."""
+    return _TRACE_STACK_VAR.get()
+
+
 def _run_with_trace(
     func: Callable, *func_args, **func_kwargs
 ) -> FuncTracer | np.ndarray:
-    """Captures function run in the current trace stack."""
-    trace_stack = _get_current_trace()
+    """Captures function run in all active trace stacks."""
+    all_traces = _get_all_traces()
     arg_arrays = [_unwrap_if_tracer(arg) for arg in func_args]
     any_args_tracers = any(isinstance(arg, FuncTracer) for arg in func_args)
 
     func_result = func(*arg_arrays, **func_kwargs)
-    if trace_stack is None or not any_args_tracers:
+    if not all_traces or not any_args_tracers:
         # Don't bother tracing if all args are just constant arrays
         return func_result
 
@@ -129,7 +144,9 @@ def _run_with_trace(
         backward_func=backward_func,
         output=traced_result,
     )
-    trace_stack.append(result_trace_item)
+    # Trace to ALL active tapes (for higher-order derivatives)
+    for trace_stack in all_traces:
+        trace_stack.append(result_trace_item)
     return traced_result
 
 
@@ -154,43 +171,70 @@ def grad(
 
     def wrapper(*func_args, **func_kwargs):
         """Returns gradient w.r.t each positional argument."""
+        # Check if we're inside an outer grad (for higher-order derivatives)
+        outer_trace = _get_current_trace()
+        outer_tape_active = outer_trace is not None
+
+        # Wrap inputs as FuncTracers (keep existing FuncTracers for nested grad)
         wrapped_func_args = [
             arg if isinstance(arg, FuncTracer) else FuncTracer(array=arg)
             for arg in func_args
         ]
+
+        # Forward pass: record operations to our tape
+        # (If outer tape exists, ops also get traced there via FuncTracer args)
         with TraceTape() as trace:
             func_output: FuncTracer = func(*wrapped_func_args, **func_kwargs)
-            if not isinstance(func_output, FuncTracer):
-                # Output is constant w.r.t. inputs, so grad is zero.
-                return tuple(np.zeros_like(wrapped_func_args[i].array) for i in argnums)
-            if func_output.array.size > 1 and grad_direction is None:
-                raise ValueError(
-                    f"Got vector output of shape {func_output.array.shape}"
-                    " but grad_direction is None."
-                )
-            # Set initial gradient
-            grad_out = np.array(1.0) if grad_direction is None else grad_direction
-            gradient_by_arg = {func_output: grad_out}
 
-            # Traverse tape backwards, updating gradients as we go
-            for (
-                trace_func,
-                trace_args,
-                trace_kwargs,
-                trace_backward_func,
-                trace_output,
-            ) in trace[::-1]:
-                trace_output_grad = gradient_by_arg[trace_output]
-                unwrapped_args = [_unwrap_if_tracer(arg) for arg in trace_args]
-                gradient_wrt_args = trace_backward_func(
-                    trace_output_grad, *unwrapped_args, **trace_kwargs
-                )
-                for i, arg in enumerate(trace_args):
-                    if isinstance(arg, FuncTracer):
-                        if arg in gradient_by_arg:
-                            gradient_by_arg[arg] += gradient_wrt_args[i]
-                        else:
-                            gradient_by_arg[arg] = gradient_wrt_args[i]
-        return tuple(gradient_by_arg[wrapped_func_args[i]] for i in argnums)
+        if not isinstance(func_output, FuncTracer):
+            # Output is constant w.r.t. inputs, so grad is zero.
+            zeros = tuple(np.zeros_like(wrapped_func_args[i].array) for i in argnums)
+            return zeros[0] if len(argnums) == 1 else zeros
+        if func_output.array.size > 1 and grad_direction is None:
+            raise ValueError(
+                f"Got vector output of shape {func_output.array.shape}"
+                " but grad_direction is None."
+            )
+
+        # Backward pass: outside our tape context, so ops trace to outer tape
+        grad_out = np.array(1.0) if grad_direction is None else grad_direction
+        gradient_by_arg = {func_output: grad_out}
+
+        for (
+            trace_func,
+            trace_args,
+            trace_kwargs,
+            trace_backward_func,
+            trace_output,
+        ) in trace[::-1]:
+            if trace_output not in gradient_by_arg:
+                # Skip ops whose output hasn't received gradient yet
+                # (can happen with nested tapes in higher-order derivatives)
+                continue
+            trace_output_grad = gradient_by_arg[trace_output]
+
+            # Keep FuncTracers for higher-order derivatives
+            backward_args = [
+                arg if outer_tape_active else _unwrap_if_tracer(arg)
+                for arg in trace_args
+            ]
+            gradient_wrt_args = trace_backward_func(
+                trace_output_grad, *backward_args, **trace_kwargs
+            )
+            for i, arg in enumerate(trace_args):
+                if isinstance(arg, FuncTracer):
+                    if arg in gradient_by_arg:
+                        gradient_by_arg[arg] += gradient_wrt_args[i]
+                    else:
+                        gradient_by_arg[arg] = gradient_wrt_args[i]
+
+        result = result = tuple(
+            gradient_by_arg.get(
+                wrapped_func_args[i], np.zeros_like(wrapped_func_args[i].array)
+            )
+            for i in argnums
+        )
+        # Return single value if only one argnum
+        return result[0] if len(argnums) == 1 else result
 
     return wrapper
