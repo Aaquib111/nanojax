@@ -17,9 +17,9 @@ def main():
 
     # Gradients: Compute with grad()
     grad_gaussian = grad(gaussian)
-    dy = np.array([grad_gaussian(np.array(xi)) for xi in x])
+    dy = np.array([grad_gaussian(xi) for xi in x])
     grad2_gaussian = grad(grad_gaussian)
-    d2y = np.array([grad2_gaussian(np.array(xi)) for xi in x])
+    d2y = np.array([grad2_gaussian(xi) for xi in x])
 
     plt.figure(figsize=(7, 3))
     plt.style.use("seaborn-v0_8-bright")

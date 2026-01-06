@@ -31,9 +31,9 @@ grad3_gaussian = grad(grad(grad(gaussian)))  # or grad(grad2_gaussian)
 
 # Use the gradients!
 x = np.linspace(-4, 4, 200)
-dy = np.array([grad_gaussian(np.array(xi)) for xi in x])
-d2y = np.array([grad2_gaussian(np.array(xi)) for xi in x])
-d3y = np.array([grad3_gaussian(np.array(xi)) for xi in x])
+dy = np.array([grad_gaussian(xi) for xi in x])
+d2y = np.array([grad2_gaussian(xi) for xi in x])
+d3y = np.array([grad3_gaussian(xi) for xi in x])
 ```
 
 ### Training a Neural Network
