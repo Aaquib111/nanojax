@@ -228,7 +228,7 @@ def grad(
                     else:
                         gradient_by_arg[arg] = gradient_wrt_args[i]
 
-        result = result = tuple(
+        result = tuple(
             gradient_by_arg.get(
                 wrapped_func_args[i], np.zeros_like(wrapped_func_args[i].array)
             )

@@ -82,18 +82,6 @@ def _pow_grad(grad_out, a, b, **_kwargs) -> tuple[np.ndarray, ...]:
     return (grad_a, grad_b)
 
 
-def _div_grad(grad_out, a, b, **_kwargs) -> tuple[Union[np.ndarray, None], ...]:
-    grad_a = _unbroadcast(grad_out / b, a.shape)
-
-    if isinstance(b, np.ndarray):
-        grad_b = _unbroadcast(-grad_out * a / (b**2), b.shape)
-    else:
-        # b is a scalar constant
-        grad_b = None
-
-    return (grad_a, grad_b)
-
-
 def _neg_grad(grad_out, *_args, **_kwargs) -> tuple[np.ndarray, ...]:
     return (-grad_out,)
 
