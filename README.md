@@ -36,7 +36,7 @@ For a list of supported operations, see the `nanojax/grad_register.py` file.
 
 ### Visualizing Derivatives
 
-![Gaussian derivatives](gaussian_derivatives.png)
+![Gaussian derivatives](examples/images/gaussian_derivatives.png)
 
 Computed using nanojax! See `examples/gaussian_derivatives.py` and `examples/nn.py` for more.
 
