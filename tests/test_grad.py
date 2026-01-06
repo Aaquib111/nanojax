@@ -206,7 +206,10 @@ class TestHigherOrderDerivatives(unittest.TestCase):
 
     def test_higher_order_grad_with_broadcast(self):
         """Tests that higher-order differentiation works correctly with broadcasting."""
-        f = lambda x: (x + np.ones((2, 1))) ** 2
+
+        def f(x):
+            return (x + np.ones((2, 1))) ** 2
+
         g = grad(
             func=grad(func=f, grad_direction=np.ones((2, 2))),
             grad_direction=np.ones((2, 2)),
