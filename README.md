@@ -9,9 +9,11 @@
 
 A minimalist tape-based reverse-mode autodiff library with drop-in support for a subset of `numpy`. 
 
-No additional dependencies are required beyond `numpy`.
+Unlike other libraries, there is no new API to learn. Simply wrap your existing `numpy` functions with `grad()`. No additional dependencies are required beyond `numpy`.
 
-This is purely an educational project, and is not intended for production use. It is not optimized for speed or memory efficiency, and supports a limited set of operations. I had fun building it, and I hope you find it interesting too!
+This is purely an educational project, and is not intended for production use. It is not optimized for speed or memory efficiency, and supports a limited set of operations. Regardless, I've been finding much use for quickly getting gradients in my existing numpy code! 
+
+I had fun building it, and I hope you find it interesting too :)
 
 ## Usage
 
